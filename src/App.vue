@@ -3,7 +3,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700;900&display=swap" rel="stylesheet">
   
   <div class="app">
-    <!-- HEADER -->
     <header class="header">
       <h1 class="logo-text">RAPIDO <span>&</span> RICO</h1>
       <div class="header-right">
@@ -16,11 +15,9 @@
     </header>
 
     <main class="dashboard">
-      <!-- SECCIÓN MENÚ -->
       <section class="card">
         <h2 class="section-title">¡ELIGE TU FAVORITO!</h2>
         
-        <!-- CATEGORÍAS -->
         <div class="categorias">
           <button
             v-for="cat in categorias"
@@ -33,7 +30,6 @@
           </button>
         </div>
 
-        <!-- PRODUCTOS -->
         <div class="productos-grid">
           <div
             v-for="p in obtenerProductosFiltrados()"
@@ -41,23 +37,18 @@
             class="producto-card"
             v-on:click="agregarAlPedido(p)"
           >
-            <!-- Imagen sin el badge de precio -->
             <div class="producto-imagen" :style="{ backgroundImage: 'url(' + p.imagen + ')' }"></div>
             
             <div class="producto-info">
               <strong class="producto-nombre">{{ p.nombre }}</strong>
               <small class="descripcion">{{ p.descripcion }}</small>
-              
-              <!-- PRECIO UBICADO DEBAJO DE LA DESCRIPCIÓN -->
               <div class="precio-inline">${{ p.precio }}</div>
-              
-              <div class="add-btn-style">¡LO QUIERO!</div>
+              <div class="add-btn-style">Agregar Al Carrito</div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- MODAL DEL PEDIDO -->
       <div class="modal-overlay" v-if="mostrarCarrito" v-on:click.self="mostrarCarrito = false">
         <section class="card modal-content">
           <div class="order-header">
@@ -109,6 +100,50 @@
     <div v-show="mostrarAlerta" class="alert-box">
       {{ mensajeAlerta }}
     </div>
+
+    <div style="display: none;">
+      <div id="factura-pdf" class="factura-container">
+        <div class="factura-header">
+          <h2>RÁPIDO & RICO</h2>
+          <p>Comprobante de Pedido Digital</p>
+        </div>
+        
+        <div class="factura-meta">
+          <p><strong>Fecha:</strong> {{ nuevaFecha }}</p>
+          <p><strong>Mesa:</strong> {{ numeroMesa }}</p>
+          <p><strong>Estado:</strong> Confirmado 🚀</p>
+        </div>
+
+        <table class="factura-tabla">
+          <thead>
+            <tr>
+              <th>Cant.</th>
+              <th>Producto</th>
+              <th>Precio Un.</th>
+              <th>Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in itemsParaFactura" :key="item.id">
+              <td>{{ item.cantidad }}x</td>
+              <td>{{ item.nombre }}</td>
+              <td>${{ item.precio }}</td>
+              <td>${{ item.precio * item.cantidad }}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="factura-total">
+          <span>TOTAL A PAGAR:</span>
+          <strong>${{ totalFactura }}</strong>
+        </div>
+
+        <div class="factura-footer">
+          <p>¡Gracias por tu compra!</p>
+          <p>Tu pedido ya se está preparando en la cocina.</p>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -121,6 +156,10 @@ const mostrarAlerta = ref(false);
 const mensajeAlerta = ref("");
 const pedidoItems = ref([]);
 const mostrarCarrito = ref(false);
+
+const itemsParaFactura = ref([]);
+const totalFactura = ref(0);
+const nuevaFecha = ref("");
 
 const categorias = ref(["Todos", "Hamburguesas", "Perros", "Salchipapas", "Acompañamientos", "Bebidas", "Especialidades"]);
 
@@ -142,7 +181,7 @@ const productos = ref([
   { id: 15, nombre: " Salchipapa BBQ", precio: 16000, descripcion: "Papas, salchicha, salsa BBQ, pollo desmechado", categoria: "Salchipapas", imagen: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrAF0C-i3JBXDkLAzYBHJODFdEszWg&s" },
   { id: 16, nombre: " Papas Fritas", precio: 3500, descripcion: "Porción clásica crujiente", categoria: "Acompañamientos", imagen: "https://okdiario.com/img/2023/04/12/el-truco-definitivo-para-que-las-patatas-fritas-te-queden-mas-crujientes.jpg" },
   { id: 17, nombre: " Aros de Cebolla", precio: 4500, descripcion: "Crujientes, salsa de ajo", categoria: "Acompañamientos", imagen: "https://es.cravingsjournal.com/wp-content/uploads/2022/05/aros-de-cebolla-1-500x375.jpg" },
-  { id: 18, nombre: " Ensalada", precio: 7500, descripcion: "Fresca con pollo grillado", categoria: "Acompañamientos", imagen: "https://mandolina.co/wp-content/uploads/2020/11/ensalada-de-pollo-aguacate-destacada-1200x720.jpg" },
+  { id: 18, fontweight: " Ensalada", precio: 7500, descripcion: "Fresca con pollo grillado", categoria: "Acompañamientos", imagen: "https://mandolina.co/wp-content/uploads/2020/11/ensalada-de-pollo-aguacate-destacada-1200x720.jpg" },
   { id: 19, nombre: " Papas Criollas", precio: 4800, descripcion: "Con salsa de hogao", categoria: "Acompañamientos", imagen: "https://preparalapapa.com/wp-content/uploads/2020/09/PAPITAS-CRIOLLAS-ASADAS-CON-PAPRIKA-Y-ROMERO-1.png" },
   { id: 20, nombre: " Nuggets (8pz)", precio: 7500, descripcion: "Pollo empanizado con miel mostaza", categoria: "Acompañamientos", imagen: "https://images.unsplash.com/photo-1562967914-608f82629710?w=200&h=200&fit=crop" },
   { id: 21, nombre: " Gaseosa", precio: 1800, descripcion: "Personal 400ml", categoria: "Bebidas", imagen: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTGPXlkwv9bIXhPilhBt8zc8XNZBXE3enO8Dw&s" },
@@ -194,7 +233,27 @@ function limpiarPedido() {
 
 function enviarPedido() {
   if (pedidoItems.value.length === 0) return mostrarMensaje("Agrega algo primero!");
+
+  itemsParaFactura.value = [...pedidoItems.value];
+  totalFactura.value = obtenerTotal();
+  nuevaFecha.value = new Date().toLocaleString();
+
   mostrarMensaje(`¡MESA ${numeroMesa.value}, TU PEDIDO VA EN CAMINO! 🚀`);
+  
+  setTimeout(() => {
+    const elementoFactura = document.getElementById("factura-pdf");
+    
+    const opciones = {
+      margin:       10,
+      filename:     `Factura_Mesa_${numeroMesa.value}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, logging: false },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opciones).from(elementoFactura).save();
+  }, 150);
+
   pedidoItems.value = [];
   mostrarCarrito.value = false;
 }
@@ -282,7 +341,7 @@ function mostrarMensaje(mensaje) {
   overflow: hidden;
   border: 2px solid #161616;
   transition: 0.3s;
-  color: #1a1a1a; /* Texto oscuro para el fondo claro */
+  color: #1a1a1a;
 }
 
 .producto-card:hover { border-color: var(--hot-red); transform: translateY(-10px); }
@@ -295,7 +354,6 @@ function mostrarMensaje(mensaje) {
 
 .descripcion { color: #666; font-size: 0.85rem; min-height: 40px; }
 
-/* NUEVO ESTILO PARA EL PRECIO */
 .precio-inline {
   font-size: 1.4rem;
   font-weight: 900;
@@ -370,6 +428,90 @@ function mostrarMensaje(mensaje) {
   font-weight: 900;
   z-index: 2000;
 }
+
+.factura-container {
+  font-family: 'Poppins', sans-serif;
+  color: #222222;
+  background: #ffffff;
+  padding: 30px;
+  max-width: 650px;
+  margin: 0 auto;
+}
+
+.factura-header {
+  text-align: center;
+  border-bottom: 3px double #222;
+  padding-bottom: 15px;
+  margin-bottom: 20px;
+}
+
+.factura-header h2 {
+  font-weight: 900;
+  font-size: 2.2rem;
+  color: #ff0033; 
+  margin: 0;
+}
+
+.factura-header p {
+  font-size: 0.9rem;
+  color: #666;
+  margin: 5px 0 0 0;
+}
+
+.factura-meta {
+  margin-bottom: 25px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.factura-meta p { margin: 4px 0; }
+
+.factura-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 25px;
+}
+
+.factura-tabla th {
+  background: #f4f4f4;
+  text-align: left;
+  padding: 10px;
+  font-weight: 700;
+  border-bottom: 2px solid #222;
+}
+
+.factura-tabla td {
+  padding: 12px 10px;
+  border-bottom: 1px solid #eee;
+  font-size: 0.95rem;
+}
+
+.factura-total {
+  text-align: right;
+  font-size: 1.4rem;
+  border-top: 2px solid #222;
+  padding-top: 15px;
+  margin-bottom: 35px;
+}
+
+.factura-total span {
+  font-weight: 400;
+  margin-right: 15px;
+}
+
+.factura-total strong {
+  font-weight: 900;
+  color: #ff0033;
+}
+
+.factura-footer {
+  text-align: center;
+  font-size: 0.85rem;
+  color: #777;
+  border-top: 1px dashed #ccc;
+  padding-top: 15px;
+}
+.factura-footer p { margin: 3px 0; }
 
 @media (max-width: 600px) {
   .productos-grid { grid-template-columns: 1fr 1fr; gap: 15px; }
