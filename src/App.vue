@@ -8,8 +8,8 @@
       <div class="header-right">
         <div class="mesa-info"> 30 Productos</div>
         <button class="cart-btn-toggle" v-on:click="mostrarCarrito = true">
-          🛒 <span class="btn-text">PEDIDO</span> 
-          <span class="cart-badge">{{ pedidoItems.length }}</span>
+          🛒
+          <span class="cart-badge" v-if="pedidoItems.length > 0">{{ pedidoItems.length }}</span>
         </button>
       </div>
     </header>
@@ -299,16 +299,38 @@ function mostrarMensaje(mensaje) {
   background: var(--neon-yellow);
   color: var(--deep-black);
   border: none;
-  padding: 12px 25px;
-  border-radius: 50px;
-  font-weight: 900;
+  width: 65px;
+  height: 65px;
+  border-radius: 50%;
+  font-size: 1.8rem;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  position: fixed;
+  bottom: 25px;
+  right: 25px;
+  z-index: 990;
+  box-shadow: 0 5px 20px rgba(252, 1, 1, 0.6);
+  transition: transform 0.2s;
 }
 
-.cart-badge { background: var(--hot-red); color: white; padding: 2px 8px; border-radius: 10px; }
+.cart-btn-toggle:hover {
+  transform: scale(1.05);
+}
+
+.cart-badge { 
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background: var(--hot-red); 
+  color: white; 
+  padding: 4px 8px; 
+  border-radius: 20px; 
+  font-size: 0.85rem;
+  font-weight: 900;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
 
 .section-title {
   text-align: center;
@@ -513,9 +535,229 @@ function mostrarMensaje(mensaje) {
 }
 .factura-footer p { margin: 3px 0; }
 
+
 @media (max-width: 600px) {
-  .productos-grid { grid-template-columns: 1fr 1fr; gap: 15px; }
-  .producto-nombre { font-size: 1rem; }
-  .precio-inline { font-size: 1.1rem; }
+
+  .app {
+    padding: 10px;
+  }
+
+  .header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+    padding: 20px 15px;
+    border-radius: 0 0 25px 25px;
+  }
+
+  .header-right {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .logo-text {
+    font-size: 1.5rem;
+  }
+
+  .mesa-info {
+    font-size: 0.9rem;
+  }
+
+  .cart-btn-toggle {
+    width: 60px; 
+    height: 60px;
+    font-size: 1.6rem;
+    bottom: 20px;
+    right: 20px;
+  }
+
+  .section-title {
+    font-size: 1.5rem;
+    text-shadow: 2px 2px 0px var(--hot-red);
+    margin-bottom: 20px;
+  }
+
+  .categorias {
+    gap: 8px;
+    padding-bottom: 15px;
+  }
+
+  .cat-btn {
+    padding: 10px 14px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  .productos-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .producto-card {
+    border-radius: 20px;
+  }
+
+  .producto-imagen {
+    height: 160px;
+  }
+
+  .producto-info {
+    padding: 15px;
+  }
+
+  .producto-nombre {
+    font-size: 1rem;
+  }
+
+  .descripcion {
+    font-size: 0.8rem;
+    min-height: auto;
+  }
+
+  .precio-inline {
+    font-size: 1.1rem;
+  }
+
+  .add-btn-style {
+    padding: 10px;
+    font-size: 0.85rem;
+  }
+
+  .modal-content {
+    width: 95%;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 20px;
+    border-radius: 25px;
+  }
+
+  .modal-title {
+    font-size: 1.3rem;
+  }
+
+  .item-pedido {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .item-miniatura {
+    width: 60px;
+    height: 60px;
+    margin-right: 0;
+  }
+
+  .item-info {
+    width: 100%;
+  }
+
+  .item-controles {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .cantidad-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .qty-btn {
+    width: 35px;
+    height: 35px;
+  }
+
+  .order-total {
+    font-size: 1.4rem;
+  }
+
+  .btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .btn {
+    width: 100%;
+  }
+
+  .btn-enviar,
+  .btn-limpiar {
+    padding: 15px;
+    font-size: 0.9rem;
+  }
+
+  /* ALERTA */
+  .alert-box {
+    width: 90%;
+    text-align: center;
+    font-size: 0.9rem;
+    padding: 14px;
+  }
+
+  .factura-container {
+    padding: 15px;
+  }
+
+  .factura-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .factura-tabla {
+    font-size: 0.75rem;
+  }
+
+  .factura-tabla th,
+  .factura-tabla td {
+    padding: 6px;
+  }
+
+  .factura-total {
+    font-size: 1.1rem;
+  }
+}
+
+
+@media (max-width: 360px) {
+
+  .logo-text {
+    font-size: 1.3rem;
+  }
+
+  .section-title {
+    font-size: 1.2rem;
+  }
+
+  .producto-imagen {
+    height: 140px;
+  }
+
+  .producto-nombre {
+    font-size: 0.9rem;
+  }
+
+  .precio-inline {
+    font-size: 1rem;
+  }
+
+  .cat-btn {
+    font-size: 0.7rem;
+    padding: 8px 10px;
+  }
+
+  .cart-btn-toggle {
+    width: 55px;
+    height: 55px;
+    font-size: 1.4rem;
+  }
+
+  .modal-content {
+    padding: 15px;
+  }
 }
 </style>
