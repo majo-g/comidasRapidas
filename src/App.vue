@@ -1,15 +1,24 @@
 <template>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght=400;600;700;900&display=swap" rel="stylesheet">
   
   <div class="app">
     <header class="header">
       <h1 class="logo-text">RAPIDO <span>&</span> RICO</h1>
       <div class="header-right">
+        <transition name="fade">
+          <span v-if="notificacionTexto" class="notificacion-header">// {{ notificacionTexto }}</span>
+        </transition>
+        
         <button class="btn-toggle-admin" v-on:click="alternarFormulario">
           {{ editandoId ? '✏️ Editando...' : '⚙️ Menú Admin' }}
         </button>
         <div class="mesa-info"> {{ productos.length }} Productos</div>
-        <button class="cart-btn-toggle" v-on:click="mostrarCarrito = true">
+        
+        <button 
+          class="cart-btn-toggle" 
+          :class="{ 'animar-pulso': animarCarrito }" 
+          v-on:click="mostrarCarrito = true"
+        >
           🛒
           <span class="cart-badge" v-if="pedidoItems.length > 0">{{ pedidoItems.length }}</span>
         </button>
@@ -24,20 +33,22 @@
             <button class="close-panel" v-on:click="limpiarFormulario">✕</button>
           </div>
 
-          <form v-on:submit.prevent="guardarProducto" class="panel-form">
+          <!-- Agregamos novalidate para apagar por completo las alertas nativas del navegador -->
+          <form v-on:submit.prevent="guardarProducto" class="panel-form" novalidate>
+
             <div class="form-group">
               <label class="form-label-white">Nombre del Producto:</label>
-              <input type="text" v-model="nuevoProducto.nombre" placeholder="Ej. Hamburguesa Triple" required class="input-dark" />
+              <input type="text" v-model="nuevoProducto.nombre" placeholder="Ej. Hamburguesa Triple" class="input-dark" />
             </div>
 
             <div class="form-group">
               <label class="form-label-white">Precio (COP):</label>
-              <input type="number" v-model.number="nuevoProducto.precio" placeholder="Ej. 15000" min="0" required class="input-dark" />
+              <input type="number" v-model.number="nuevoProducto.precio" placeholder="Ej. 15000" min="0" class="input-dark" />
             </div>
 
             <div class="form-group">
               <label class="form-label-white">Categoría:</label>
-              <select v-model="nuevoProducto.categoria" required class="input-dark">
+              <select v-model="nuevoProducto.categoria" class="input-dark">
                 <option v-for="cat in categoriasDisponibles" :key="cat" :value="cat">
                   {{ cat }}
                 </option>
@@ -46,12 +57,12 @@
 
             <div class="form-group">
               <label class="form-label-white">Descripción:</label>
-              <input type="text" v-model="nuevoProducto.descripcion" placeholder="Ej. Triple carne, queso cheddar..." required class="input-dark" />
+              <input type="text" v-model="nuevoProducto.descripcion" placeholder="Ej. Triple carne, queso cheddar..." class="input-dark" />
             </div>
 
             <div class="form-group">
               <label class="form-label-white">URL de la Imagen:</label>
-              <input type="url" v-model="nuevoProducto.imagen" placeholder="https://ejemplo.com/imagen.jpg" required class="input-dark" />
+              <input type="url" v-model="nuevoProducto.imagen" placeholder="https://ejemplo.com/imagen.jpg" class="input-dark" />
             </div>
 
             <button type="submit" class="btn-guardar-producto">
@@ -95,7 +106,14 @@
 
             <div class="admin-actions-bar">
               <button class="btn-action-edit" v-on:click="cargarEdicion(p)">✏️ Editar</button>
-              <button class="btn-action-delete" v-on:click="eliminarProductoDelMenu(p)">🗑️ Eliminar</button>
+              
+              <button 
+                class="btn-action-delete" 
+                :class="{ 'esperando-confirmacion': idConfirmacionEliminar === p.id }"
+                v-on:click="manejarEliminacionMenu(p)"
+              >
+                {{ idConfirmacionEliminar === p.id ? '¿Seguro? ⚠️' : '🗑️ Eliminar' }}
+              </button>
             </div>
           </div>
         </div>
@@ -136,7 +154,7 @@
             </div>
           </div>
 
-          <div v-else class="pedido-vacio">
+          <div class="pedido-vacio" v-else>
             <div class="vacio-icono">🛒</div>
             <p>Tu carrito está vacío</p>
             <span>¡Agrega tus platillos favoritos para empezar!</span>
@@ -149,7 +167,8 @@
             </div>
 
             <div class="btn-group">
-              <button class="btn btn-enviar" v-on:click="enviarPedido">CONFIRMAR PEDIDO </button>
+              <button class="btn btn-enviar" v-on:click="enviarPedido">CONFIRMAR PEDIDO
+</button>
               <button class="btn btn-limpiar" v-on:click="limpiarPedido">Vaciar carrito</button>
             </div>
           </div>
@@ -157,11 +176,7 @@
       </div>
     </main>
 
-    <div v-show="mostrarAlerta" class="alert-box">
-      {{ mensajeAlerta }}
-    </div>
-
-    <div style="display: none;">
+    <div class="factura-wrapper-oculto">
       <div id="factura-pdf" class="factura-container">
         <div class="factura-header">
           <h2>RÁPIDO & RICO</h2>
@@ -212,29 +227,30 @@
 
 <script setup>
 import { ref, computed } from "vue";
+import Swal from 'https://cdn.jsdelivr.net/npm/sweetalert2@11/+esm'
 
 const categoriaActiva = ref("Todos");
 const numeroMesa = ref(1);
-const mostrarAlerta = ref(false);
-const mensajeAlerta = ref("");
 const pedidoItems = ref([]);
 const mostrarCarrito = ref(false);
 
 const mostrarFormulario = ref(false);
 const editandoId = ref(null); 
-const nuevoProducto = ref({
-  nombre: "",
-  precio: null,
-  descripcion: "",
-  categoria: "Hamburguesas",
-  imagen: ""
-});
+const nuevoProducto = ref({ nombre: "", precio: null, descripcion: "", categoria: "Hamburguesas", imagen: "" });
+
+// Estados de control interno
+const notificacionTexto = ref("");
+const alertaFormulario = ref(""); // <--- NUEVO: Controla el texto del error en el panel admin
+const idConfirmacionEliminar = ref(null);
+const animarCarrito = ref(false); 
+let temporizadorConfirmacion = null;
 
 const itemsParaFactura = ref([]);
 const totalFactura = ref(0);
 const nuevaFecha = ref("");
 
-const categorias = ref(["Todos", "Hamburguesas", "Perros", "Salchipapas", "Acompañamientos", "Bebidas", "Especialidades"]);
+const categoriesString = ["Todos", "Hamburguesas", "Perros", "Salchipapas", "Acompañamientos", "Bebidas", "Especialidades"];
+const categorias = ref(categoriesString);
 
 const categoriasDisponibles = computed(() => {
   return categorias.value.filter(c => c !== "Todos");
@@ -248,7 +264,7 @@ const productos = ref([
   { id: 5, nombre: " Hamburguesa Mexicana", precio: 18500, descripcion: "Guacamole, jalapeños", categoria: "Hamburguesas", imagen: "https://www.vvsupremo.com/wp-content/uploads/2018/05/Mexican-Burger-with-Chorizo.jpg" },
   { id: 6, nombre: " Perro Caliente", precio: 5000, descripcion: "Salchicha, papitas, salsas", categoria: "Perros", imagen: "https://media.istockphoto.com/id/1161043951/es/foto/perro-colombiano-paisa.jpg?s=612x612&w=0&k=20&c=-5Xi0DKEPupdcMSDJoymfhCIDVEgAjbHxohGu3ldwfE=" },
   { id: 7, nombre: " Perro Especial", precio: 8500, descripcion: "Tocineta, queso, piña", categoria: "Perros", imagen: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRNiaRNJ1ZXzBSvcjB9jpBhpzqJEkK8-6htGg&s" },
-  { id: 8, nombre: " Perro Americano", precio: 10500, descripcion: "Chili con carne, queso", categoria: "Perros", imagen: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTF8UbHxjp_hq5NviYymYMk1Tk4Ar9EFX6__A&s" },
+  { id: 8, fontAwesome: " Perro Americano", nombre: " Perro Americano", precio: 10500, descripcion: "Chili con carne, queso", categoria: "Perros", imagen: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTF8UbHxjp_hq5NviYymYMk1Tk4Ar9EFX6__A&s" },
   { id: 9, nombre: " Perro Ranchero", precio: 12000, descripcion: "Maíz, mayonesa chipotle", categoria: "Perros", imagen: "https://0201.nccdn.net/1_2/000/000/192/ea4/perro-ranchero.jpg" },
   { id: 10, nombre: " Perro Colombiano", precio: 10500, descripcion: "Piña, papa criolla", categoria: "Perros", imagen: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTLxDX474LGREwRLHZfkQAEYVZVWQSBewxU6w&s" },
   { id: 11, nombre: " Salchipapa Clásica", precio: 9500, descripcion: "Papas fritas, salchicha, salsa rosada", categoria: "Salchipapas", imagen: "https://imag.bonviveur.com/emplatado-final-de-las-salchipapas.jpg" },
@@ -259,7 +275,7 @@ const productos = ref([
   { id: 16, nombre: " Papas Fritas", precio: 3500, descripcion: "Porción clásica crujiente", categoria: "Acompañamientos", imagen: "https://okdiario.com/img/2023/04/12/el-truco-definitivo-para-que-las-patatas-fritas-te-queden-mas-crujientes.jpg" },
   { id: 17, nombre: " Aros de Cebolla", precio: 4500, descripcion: "Crujientes, salsa de ajo", categoria: "Acompañamientos", imagen: "https://es.cravingsjournal.com/wp-content/uploads/2022/05/aros-de-cebolla-1-500x375.jpg" },
   { id: 18, nombre: " Ensalada", precio: 7500, descripcion: "Fresca con pollo grillado", categoria: "Acompañamientos", imagen: "https://mandolina.co/wp-content/uploads/2020/11/ensalada-de-pollo-aguacate-destacada-1200x720.jpg" },
-  { id: 19, font_weight: "900", nombre: " Papas Criollas", precio: 4800, descripcion: "Con salsa de hogao", categoria: "Acompañamientos", imagen: "https://preparalapapa.com/wp-content/uploads/2020/09/PAPITAS-CRIOLLAS-ASADAS-CON-PAPRIKA-Y-ROMERO-1.png" },
+  { id: 19, nombre: " Papas Criollas", precio: 4800, descripcion: "Con salsa de hogao", categoria: "Acompañamientos", imagen: "https://preparalapapa.com/wp-content/uploads/2020/09/PAPITAS-CRIOLLAS-ASADAS-CON-PAPRIKA-Y-ROMERO-1.png" },
   { id: 20, nombre: " Nuggets (8pz)", precio: 7500, descripcion: "Pollo empanizado con miel mostaza", categoria: "Acompañamientos", imagen: "https://images.unsplash.com/photo-1562967914-608f82629710?w=200&h=200&fit=crop" },
   { id: 21, nombre: " Gaseosa", precio: 1800, descripcion: "Personal 400ml", categoria: "Bebidas", imagen: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTGPXlkwv9bIXhPilhBt8zc8XNZBXE3enO8Dw&s" },
   { id: 22, nombre: " Jugo Natural", precio: 2500, descripcion: "Fresa/Mora/Maracuyá", categoria: "Bebidas", imagen: "https://media-cdn.tripadvisor.com/media/photo-s/19/6f/f1/96/jugos-naturales-fresa.jpg" },
@@ -274,11 +290,7 @@ const productos = ref([
 ]);
 
 function formatearMoneda(valor) {
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    minimumFractionDigits: 0
-  }).format(valor);
+  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(valor);
 }
 
 function obtenerProductosFiltrados() {
@@ -297,10 +309,72 @@ function agregarAlPedido(producto) {
   } else {
     pedidoItems.value.push({ ...producto, cantidad: 1 });
   }
-  mostrarMensaje(`${producto.nombre} añadido!`);
+  
+  // ALERTA TIPO TOAST CON SWEETALERT2
+  Swal.fire({
+    icon: "success",
+    title: "¡Agregado al carrito!",
+    text: `${producto.nombre.trim()} se sumó a tu pedido.`,
+    toast: true,                
+    position: "top-end",        
+    showConfirmButton: false,   
+    timer: 2000,                
+    timerProgressBar: true,     
+    background: "#1a1a1a",      
+    color: "#ffffff"            
+  });
+  
+  // Mantiene tu animación de pulso en el botón flotante del carrito
+  animarCarrito.value = true;
+  setTimeout(() => {
+    animarCarrito.value = false;
+  }, 400); 
 }
 
+// NUEVA VALIDACIÓN CONTROLADA DESDE VUE (Sin alertas HTML toscas)
 function guardarProducto() {
+  // Validaciones manuales usando la variable Swal directamente
+  if (!nuevoProducto.value.nombre || nuevoProducto.value.nombre.trim() === "") {
+    Swal.fire({
+      icon: "error",
+      title: "¡Faltan datos!",
+      text: "Por favor ingresa el nombre del producto.",
+      confirmButtonColor: "#ff0033"
+    });
+    return;
+  }
+  
+  if (nuevoProducto.value.precio === null || nuevoProducto.value.precio === undefined || nuevoProducto.value.precio < 0) {
+    Swal.fire({
+      icon: "error",
+      title: "¡Precio inválido!",
+      text: "Por favor ingresa un precio válido (mayor o igual a 0).",
+      confirmButtonColor: "#ff0033"
+    });
+    return;
+  }
+  
+  if (!nuevoProducto.value.descripcion || nuevoProducto.value.descripcion.trim() === "") {
+    Swal.fire({
+      icon: "error",
+      title: "¡Faltan datos!",
+      text: "Por favor agrega una breve descripción.",
+      confirmButtonColor: "#ff0033"
+    });
+    return;
+  }
+  
+  if (!nuevoProducto.value.imagen || nuevoProducto.value.imagen.trim() === "") {
+    Swal.fire({
+      icon: "error",
+      title: "¡Faltan datos!",
+      text: "Por favor pega un enlace o URL de imagen válido.",
+      confirmButtonColor: "#ff0033"
+    });
+    return;
+  }
+
+  // Si pasa el filtro, procesamos el guardado
   if (editandoId.value !== null) {
     const indice = productos.value.findIndex(p => p.id === editandoId.value);
     if (indice !== -1) {
@@ -315,7 +389,14 @@ function guardarProducto() {
         categoria: nuevoProducto.value.categoria,
         imagen: nuevoProducto.value.imagen
       };
-      mostrarMensaje(`¡${nuevoProducto.value.nombre} actualizado con éxito! 🔄`);
+      
+      Swal.fire({
+        icon: "success",
+        title: "¡Actualizado!",
+        text: `${nuevoProducto.value.nombre.trim()} se modificó correctamente.`,
+        timer: 2000,
+        showConfirmButton: false
+      });
     }
   } else {
     const nuevoId = productos.value.length > 0 ? Math.max(...productos.value.map(p => p.id)) + 1 : 1;
@@ -328,10 +409,23 @@ function guardarProducto() {
       categoria: nuevoProducto.value.categoria,
       imagen: nuevoProducto.value.imagen
     });
-    mostrarMensaje(`¡${nuevoProducto.value.nombre} agregado! 🍔`);
+
+    Swal.fire({
+      icon: "success",
+      title: "¡Creado con éxito!",
+      text: `${nuevoProducto.value.nombre.trim()} fue agregado al menú.`,
+      timer: 2000,
+      showConfirmButton: false
+    });
   }
-  
   limpiarFormulario();
+}
+
+function desplegarAlertaFormulario(msg) {
+  alertaFormulario.value = msg;
+  setTimeout(() => {
+    if (alertaFormulario.value === msg) alertaFormulario.value = "";
+  }, 4000);
 }
 
 function cargarEdicion(producto) {
@@ -346,13 +440,21 @@ function cargarEdicion(producto) {
   mostrarFormulario.value = true;
 }
 
-function eliminarProductoDelMenu(producto) {
-  const confirmar = confirm(`¿Estás completamente seguro de que quieres eliminar "${producto.nombre.trim()}"?`);
-  if (confirmar) {
+function manejarEliminacionMenu(producto) {
+  if (idConfirmacionEliminar.value === producto.id) {
     productos.value = productos.value.filter(p => p.id !== producto.id);
-    pedidoItems.value = pedidoItems.value.filter(i => i.id !== producto.id);
-    mostrarMensaje(`Producto eliminado 🗑️`);
+    pedidoItems.value = pedidoItems.value.filter(i => i !== producto);
+    ejecutarNotificacionInterna("Menú actualizado (Eliminado)");
+    
     if (editandoId.value === producto.id) limpiarFormulario();
+    idConfirmacionEliminar.value = null;
+    clearTimeout(temporizadorConfirmacion);
+  } else {
+    idConfirmacionEliminar.value = producto.id;
+    clearTimeout(temporizadorConfirmacion);
+    temporizadorConfirmacion = setTimeout(() => {
+      idConfirmacionEliminar.value = null;
+    }, 3000);
   }
 }
 
@@ -368,6 +470,7 @@ function limpiarFormulario() {
   nuevoProducto.value = { nombre: "", precio: null, descripcion: "", categoria: "Hamburguesas", imagen: "" };
   editandoId.value = null;
   mostrarFormulario.value = false;
+  alertaFormulario.value = "";
 }
 
 function cambiarCantidad(item, delta) {
@@ -378,45 +481,179 @@ function cambiarCantidad(item, delta) {
 
 function eliminarItem(item) {
   pedidoItems.value = pedidoItems.value.filter(i => i !== item);
-  mostrarMensaje("Eliminado 🗑️");
+  ejecutarNotificacionInterna("Item removido");
 }
 
 function limpiarPedido() {
   pedidoItems.value = [];
-  mostrarMensaje("CARRITO VACÍO");
+  ejecutarNotificacionInterna("Carrito vacío");
 }
 
 function enviarPedido() {
-  if (pedidoItems.value.length === 0) return mostrarMensaje("Agrega algo primero!");
+  if (pedidoItems.value.length === 0) return;
 
-  itemsParaFactura.value = [...pedidoItems.value];
-  totalFactura.value = obtenerTotal();
-  nuevaFecha.value = new Date().toLocaleString();
+  if (!window.jspdf) {
+    ejecutarNotificacionInterna("jsPDF no está cargado");
+    return;
+  }
 
-  mostrarMensaje(`¡MESA ${numeroMesa.value}, EN CAMINO! `);
-  
-  setTimeout(() => {
-    const elementoFactura = document.getElementById("factura-pdf");
-    
-    const opciones = {
-      margin:       15,
-      filename:     `Factura_Mesa_${numeroMesa.value}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2.5, logging: false, useCORS: true }, 
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
 
-    html2pdf().set(opciones).from(elementoFactura).save();
-  }, 150);
+  // ENCABEZADO
+  doc.setFillColor(255, 0, 51);
+  doc.rect(0, 0, 210, 35, "F");
 
-  pedidoItems.value = [];
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(24);
+  doc.setFont("helvetica", "bold");
+  doc.text("RAPIDO & RICO", 105, 18, { align: "center" });
+
+  doc.setFontSize(10);
+  doc.text("COMPROBANTE OFICIAL DE PEDIDO", 105, 27, {
+    align: "center",
+  });
+
+  // DATOS
+  let y = 50;
+
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(12);
+
+  doc.text(`Mesa: ${numeroMesa.value}`, 15, y);
+  y += 8;
+
+  doc.text(
+    `Fecha: ${new Date().toLocaleDateString()}`,
+    15,
+    y
+  );
+  y += 8;
+
+  doc.text(
+    `Hora: ${new Date().toLocaleTimeString()}`,
+    15,
+    y
+  );
+
+  // TABLA
+  y += 15;
+
+  doc.setFillColor(30, 30, 30);
+  doc.rect(15, y - 6, 180, 10, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(11);
+
+  doc.text("PRODUCTO", 20, y);
+  doc.text("CANT", 120, y);
+  doc.text("SUBTOTAL", 190, y, { align: "right" });
+
+  y += 12;
+
+  doc.setTextColor(0, 0, 0);
+
+  pedidoItems.value.forEach(item => {
+    const subtotal = item.precio * item.cantidad;
+
+    doc.setFontSize(10);
+
+    doc.text(item.nombre.trim(), 20, y);
+
+    doc.text(
+      item.cantidad.toString(),
+      125,
+      y
+    );
+
+    doc.text(
+      formatearMoneda(subtotal),
+      190,
+      y,
+      { align: "right" }
+    );
+
+    y += 10;
+
+    doc.setDrawColor(230, 230, 230);
+    doc.line(15, y - 4, 195, y - 4);
+
+    if (y > 250) {
+      doc.addPage();
+      y = 20;
+    }
+  });
+
+  // TOTAL
+  y += 10;
+
+  doc.setFillColor(204, 255, 0);
+  doc.roundedRect(120, y - 5, 75, 18, 3, 3, "F");
+
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+
+  doc.text(
+    "TOTAL:",
+    130,
+    y + 6
+  );
+
+  doc.text(
+    formatearMoneda(obtenerTotal()),
+    190,
+    y + 6,
+    { align: "right" }
+  );
+
+  // PIE
+  y += 35;
+
+  doc.setDrawColor(180);
+  doc.line(20, y, 190, y);
+
+  y += 12;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+
+  doc.text(
+    "Gracias por preferir RAPIDO & RICO",
+    105,
+    y,
+    { align: "center" }
+  );
+
+  y += 8;
+
+  doc.text(
+    "Tu pedido fue enviado correctamente a cocina.",
+    105,
+    y,
+    { align: "center" }
+  );
+
+  y += 8;
+
+  doc.text(
+    "Presenta este comprobante al momento de pagar.",
+    105,
+    y,
+    { align: "center" }
+  );
+
+  doc.save(`Factura_Mesa_${numeroMesa.value}.pdf`);
+
   mostrarCarrito.value = false;
+
+  ejecutarNotificacionInterna("PDF generado correctamente");
 }
 
-function mostrarMensaje(mensaje) {
-  mensajeAlerta.value = mensaje;
-  mostrarAlerta.value = true;
-  setTimeout(() => { mostrarAlerta.value = false; }, 2000);
+function ejecutarNotificacionInterna(mensaje) {
+  notificacionTexto.value = mensaje;
+  setTimeout(() => {
+    if (notificacionTexto.value === mensaje) notificacionTexto.value = "";
+  }, 3000);
 }
 </script>
 
@@ -426,6 +663,62 @@ function mostrarMensaje(mensaje) {
   --hot-red: #ff0033;
   --deep-black: #202020;
   --white: #ffffff;
+}
+
+/* NUEVA CLASE: Alerta integrada dentro del panel del Administrador */
+.alerta-formulario-interna {
+  background: rgba(255, 0, 51, 0.15);
+  color: #ff3355;
+  border: 1px solid var(--hot-red);
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 20px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.notificacion-header {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--neon-yellow);
+  background: rgba(0, 0, 0, 0.4);
+  padding: 6px 14px;
+  border-radius: 8px;
+  border-left: 3px solid var(--neon-yellow);
+}
+
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+.cart-btn-toggle.animar-pulso {
+  animation: saltoPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes saltoPop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); background: #ffffff; box-shadow: 0 0 25px var(--neon-yellow); }
+  100% { transform: scale(1); }
+}
+
+.btn-action-delete.esperando-confirmacion {
+  background: #ff0033 !important;
+  color: #ffffff !important;
+  animation: pulsoAdvertencia 1s infinite alternate;
+}
+
+@keyframes pulsoAdvertencia {
+  from { opacity: 0.8; }
+  to { opacity: 1; box-shadow: 0 0 8px #ff0033; }
+}
+
+.factura-wrapper-oculto {
+  position: absolute;
+  left: -9999px;
+  top: -9999px;
+  width: 550px;
+  overflow: hidden;
 }
 
 .app {
@@ -451,19 +744,8 @@ function mostrarMensaje(mensaje) {
 .logo-text { font-weight: 900; font-size: 2rem; letter-spacing: -1px; margin: 0; }
 .logo-text span { color: var(--neon-yellow); }
 
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.mesa-info {
-  background: rgba(0, 0, 0, 0.2);
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-weight: 600;
-  font-size: 0.95rem;
-}
+.header-right { display: flex; align-items: center; gap: 15px; }
+.mesa-info { background: rgba(0, 0, 0, 0.2); padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 0.95rem; }
 
 .btn-toggle-admin {
   background: var(--deep-black);
@@ -498,59 +780,19 @@ function mostrarMensaje(mensaje) {
   box-sizing: border-box;
 }
 
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #3d3d3d;
-  padding-bottom: 15px;
-  margin-bottom: 20px;
-}
+.panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #3d3d3d; padding-bottom: 15px; margin-bottom: 20px; }
+.panel-header h3 { margin: 0; font-size: 1.4rem; font-weight: 700; color: #ffffff; }
 
-.panel-header h3 {
-  margin: 0;
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: #ffffff;
-}
-
-.close-panel {
-  background: #2d2d2d;
-  color: #aaa;
-  border: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  cursor: pointer;
-  font-weight: 700;
-}
+.close-panel { background: #2d2d2d; color: #aaa; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-weight: 700; }
 .close-panel:hover { background: var(--hot-red); color: white; }
 
-.panel-form {
-  flex: 1;
-  overflow-y: auto; 
-  padding-right: 5px;
-}
+.panel-form { flex: 1; overflow-y: auto; padding-right: 5px; }
 
-.slide-enter-active, .slide-leave-active {
-  transition: transform 0.3s ease;
-}
-.slide-enter-from, .slide-leave-to {
-  transform: translateX(100%);
-}
+.slide-enter-active, .slide-leave-active { transition: transform 0.3s ease; }
+.slide-enter-from, .slide-leave-to { transform: translateX(100%); }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 16px;
-}
-
-.form-label-white {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #ffffff; 
-}
+.form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.form-label-white { font-size: 0.85rem; font-weight: 600; color: #ffffff; }
 
 .input-dark {
   background: #252525;
@@ -564,7 +806,6 @@ function mostrarMensaje(mensaje) {
   width: 100%;
   box-sizing: border-box;
 }
-.input-dark::placeholder { color: #888888; }
 .input-dark:focus { border-color: var(--neon-yellow); }
 
 .btn-guardar-producto {
@@ -580,79 +821,31 @@ function mostrarMensaje(mensaje) {
   margin-top: 15px;
   box-shadow: 0 4px 15px rgba(204, 255, 0, 0.2);
 }
-.btn-guardar-producto:hover { background: #b5e200; }
 
-.admin-actions-bar {
-  display: flex;
-  border-top: 1px solid #dddddd;
-  background: #f8f8f8;
-  padding: 8px;
-  gap: 8px;
-}
-.btn-action-edit, .btn-action-delete {
-  flex: 1;
-  border: none;
-  padding: 8px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  border-radius: 8px;
-  cursor: pointer;
-  font-family: 'Poppins', sans-serif;
-  transition: background 0.2s;
-}
+.admin-actions-bar { display: flex; border-top: 1px solid #dddddd; background: #f8f8f8; padding: 8px; gap: 8px; }
+.btn-action-edit, .btn-action-delete { flex: 1; border: none; padding: 8px; font-size: 0.85rem; font-weight: 700; border-radius: 8px; cursor: pointer; font-family: 'Poppins', sans-serif; transition: background 0.2s; }
 .btn-action-edit { background: #e2ecff; color: #0055ff; }
-.btn-action-edit:hover { background: #cbdcff; }
-
 .btn-action-delete { background: #ffe2e6; color: #ff0033; }
-.btn-action-delete:hover { background: #ffcbd3; }
 
 .card { background: transparent; }
 
 .cart-btn-toggle {
-  background: #ccff00 ;
-  color: #000000 ;
-  border: 3px solid #000000 ;
-  width: 70px;
-  height: 70px;
-  border-radius: 50%;
-  font-size: 2rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: fixed;
-  bottom: 25px;
-  right: 25px;
-  z-index: 99999 ;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6) ;
-  transition: transform 0.2s;
+  background: #ccff00 ; color: #000000 ; border: 3px solid #000000 ;
+  width: 70px; height: 70px; border-radius: 50%; font-size: 2rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  position: fixed; bottom: 25px; right: 25px; z-index: 99999 ;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6) ; transition: transform 0.2s;
 }
 .cart-btn-toggle:hover { transform: scale(1.1); }
+.cart-badge { position: absolute; top: -6px; right: -6px; background: #ff0033 ; color: #ffffff ; padding: 4px 10px; border-radius: 20px; font-size: 0.95rem; font-weight: 900; border: 2px solid #000000 ; }
 
-.cart-badge { 
-  position: absolute; top: -6px; right: -6px;
-  background: #ff0033 ; color: #ffffff ; 
-  padding: 4px 10px; border-radius: 20px; font-size: 0.95rem; font-weight: 900;
-  border: 2px solid #000000 ;
-}
-
-.section-title {
-  text-align: center; font-weight: 900; font-size: 2.5rem;
-  color: var(--neon-yellow); margin-bottom: 30px;
-  text-shadow: 3px 3px 0px var(--hot-red);
-}
-
+.section-title { text-align: center; font-weight: 900; font-size: 2.5rem; color: var(--neon-yellow); margin-bottom: 30px; text-shadow: 3px 3px 0px var(--hot-red); }
 .categorias { display: flex; gap: 10px; overflow-x: auto; padding: 10px 0 25px 0; }
 .cat-btn { background: #1d1d1d; color: #f1ebeb; border: 2px solid #333; padding: 12px 25px; border-radius: 15px; font-weight: 700; cursor: pointer; }
 .cat-btn.active { background: var(--neon-yellow); color: var(--deep-black); border-color: var(--neon-yellow); }
 
 .productos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 30px; }
-
-.producto-card {
-  background: #eceaea; border-radius: 30px; overflow: hidden; border: 2px solid #161616;
-  display: flex; flex-direction: column; justify-content: space-between;
-}
-.producto-card:hover { border-color: var(--hot-red); transform: translateY(-5px); }
+.producto-card { background: #eceaea; border-radius: 30px; overflow: hidden; border: 2px solid #161616; display: flex; flex-direction: column; justify-content: space-between; }
 .producto-imagen { height: 180px; background-size: cover; background-position: center; cursor: pointer; }
 .producto-info { padding: 20px; display: flex; flex-direction: column; gap: 5px; cursor: pointer; }
 .producto-nombre { font-size: 1.2rem; font-weight: 900; color: #111; }
@@ -660,22 +853,13 @@ function mostrarMensaje(mensaje) {
 .precio-inline { font-size: 1.4rem; font-weight: 900; color: var(--hot-red); margin: 5px 0; }
 .add-btn-style { background: var(--neon-yellow); color: var(--deep-black); padding: 12px; border-radius: 15px; text-align: center; font-weight: 900; font-size: 0.9rem; cursor: pointer; }
 
-.modal-overlay {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center;
-  z-index: 10000; backdrop-filter: blur(4px);
-}
-.modal-content {
-  background: #1a1a1a; width: 92%; max-width: 480px; max-height: 85vh;
-  border-radius: 24px; padding: 24px; color: #ffffff; display: flex; flex-direction: column; border: 1px solid #333333;
-}
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center; z-index: 10000; backdrop-filter: blur(4px); }
+.modal-content { background: #1a1a1a; width: 92%; max-width: 480px; max-height: 85vh; border-radius: 24px; padding: 24px; color: #ffffff; display: flex; flex-direction: column; border: 1px solid #333333; }
 .order-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid #2d2d2d; }
 .modal-title { font-size: 1.6rem; font-weight: 700; margin: 0; }
 .close-modal { background: #2d2d2d; color: #aaa; border: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.close-modal:hover { background: var(--hot-red); color: white; }
 
 .mesa-selector { background: #222222; padding: 12px 16px; border-radius: 14px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.mesa-selector label { font-weight: 600; color: #fff; }
 .input-wrapper { display: flex; align-items: center; background: #1a1a1a; border: 1px solid #444; border-radius: 8px; padding: 4px 10px; }
 .input-wrapper input { background: transparent; border: none; color: var(--neon-yellow); font-weight: 700; font-size: 1.1rem; width: 50px; text-align: center; outline: none; }
 
@@ -683,14 +867,12 @@ function mostrarMensaje(mensaje) {
 .item-pedido { display: flex; align-items: center; background: #222222; padding: 12px; border-radius: 16px; margin-bottom: 12px; border: 1px solid #2d2d2d; }
 .item-miniatura { width: 55px; height: 55px; border-radius: 12px; background-size: cover; background-position: center; flex-shrink: 0; }
 .item-detalles { flex: 1; padding: 0 12px; display: flex; flex-direction: column; gap: 4px; }
-.item-nombre { font-size: 0.95rem; font-weight: 600; }
 .item-subtotal { font-size: 1rem; font-weight: 700; color: var(--neon-yellow); }
 .item-acciones { display: flex; align-items: center; gap: 12px; }
 .cantidad-box { display: flex; align-items: center; background: #1a1a1a; border-radius: 10px; padding: 2px; border: 1px solid #333; }
-.qty-btn { background: transparent; color: #fff; border: none; width: 28px; height: 28px; font-size: 1.1rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.qty-btn { background: transparent; color: #fff; border: none; width: 28px; height: 28px; font-size: 1.1rem; font-weight: 600; cursor: pointer; }
 .qty-num { font-weight: 700; min-width: 24px; text-align: center; }
 .del-btn { background: rgba(255, 0, 51, 0.1); color: var(--hot-red); border: none; width: 32px; height: 32px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.del-btn:hover { background: var(--hot-red); color: white; }
 
 .pedido-vacio { text-align: center; padding: 40px 20px; color: #888; }
 .vacio-icono { font-size: 3.5rem; margin-bottom: 15px; opacity: 0.5; }
@@ -705,7 +887,8 @@ function mostrarMensaje(mensaje) {
 .btn-enviar { background: var(--hot-red); color: white; padding: 16px; border-radius: 14px; width: 100%; border: none; font-weight: 700; font-size: 1.05rem; cursor: pointer; }
 .btn-limpiar { background: transparent; color: #888888; border: none; font-weight: 600; cursor: pointer; text-decoration: underline; align-self: center; }
 
-.factura-container { font-family: 'Poppins', sans-serif; color: #111111; background: #ffffff; padding: 30px; width: 100%; max-width: 550px; margin: 0 auto; }
+/* ESTILOS DE LA FACTURA */
+.factura-container { font-family: 'Poppins', sans-serif; color: #111111; background: #ffffff; padding: 30px; width: 100%; box-sizing: border-box; }
 .factura-header { text-align: center; border-bottom: 3px solid #111111; padding-bottom: 12px; margin-bottom: 20px; }
 .factura-header h2 { font-weight: 900; font-size: 2rem; color: #ff0033; margin: 0; }
 .factura-subtitle { font-size: 0.9rem; color: #555555; margin: 5px 0 0 0; font-weight: 600; text-transform: uppercase; }
@@ -714,37 +897,11 @@ function mostrarMensaje(mensaje) {
 .badge-status { background: #e6f9ed; color: #1ea94b; padding: 2px 8px; border-radius: 4px; font-weight: 700; }
 .factura-tabla { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
 .factura-tabla th { background: #111111; color: #ffffff; padding: 10px 8px; font-weight: 700; }
-.factura-tabla td { padding: 12px 8px; border-bottom: 1px solid #dddddd; }
-.factura-item-nombre { font-weight: 600; }
-.factura-total-block { background: #f4f4f4; border-left: 5px solid #ff0033; padding: 14px 20px; border-radius: 6px; margin-bottom: 30px; }
+.factura-tabla td { padding: 10px 8px; border-bottom: 1px solid #eaeaea; color: #111111; }
+.factura-total-block { background: #f1f1f1; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
 .total-row { display: flex; justify-content: space-between; align-items: center; }
-.total-block-label { font-size: 1.1rem; font-weight: 700; }
-.total-block-monto { font-size: 1.6rem; font-weight: 900; color: #ff0033; }
-.factura-footer { text-align: center; font-size: 0.85rem; color: #666; border-top: 2px dashed #bbbbbb; padding-top: 20px; }
-.gracias-msg { font-size: 1.1rem; font-weight: 700; }
-
-.alert-box { position: fixed; top: 40px; left: 50%; transform: translateX(-50%); background: var(--neon-yellow); color: var(--deep-black); padding: 15px 40px; border-radius: 50px; font-weight: 900; z-index: 100020; }
-
-@media (max-width: 600px) {
-  .app { padding: 10px; }
-  .header { flex-direction: column; gap: 15px; text-align: center; padding: 20px 15px; border-radius: 0 0 25px 25px; }
-  .header-right { width: 100%; flex-direction: column; gap: 10px; }
-  .btn-toggle-admin { width: 100%; padding: 12px; }
-  
-  .admin-panel-right { width: 100%; border-left: none; }
-
-  .cart-btn-toggle { width: 65px ; height: 65px ; bottom: 20px; right: 20px; }
-  .section-title { font-size: 1.5rem; margin-bottom: 20px; }
-  .categorias { gap: 8px; padding-bottom: 15px; }
-  .cat-btn { padding: 10px 14px; font-size: 0.75rem; white-space: nowrap; }
-  .productos-grid { grid-template-columns: 1fr; gap: 15px; }
-  .producto-card { border-radius: 20px; }
-  .producto-imagen { height: 160px; }
-  .producto-info { padding: 15px; }
-  .add-btn-style { padding: 10px; font-size: 0.85rem; }
-  .admin-actions-bar { padding: 6px; }
-  .btn-action-edit, .btn-action-delete { padding: 10px; font-size: 0.8rem; }
-  .modal-content { padding: 16px; border-radius: 20px; }
-  .alert-box { width: 90%; text-align: center; padding: 14px; }
-}
+.total-block-label { font-weight: 700; font-size: 1rem; }
+.total-block-monto { font-size: 1.4rem; color: #ff0033; }
+.factura-footer { text-align: center; font-size: 0.85rem; color: #666666; border-top: 1px dashed #cccccc; padding-top: 15px; }
+.gracias-msg { font-weight: 700; color: #111111; margin-bottom: 5px; }
 </style>
