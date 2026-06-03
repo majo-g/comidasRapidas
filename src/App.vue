@@ -780,6 +780,11 @@ function ejecutarNotificacionInterna(mensaje) {
   box-sizing: border-box;
 }
 
+/* Pégalo abajo del todo en tus estilos */
+:global(.swal2-container) {
+  z-index: 20000 !important;
+}
+
 .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #3d3d3d; padding-bottom: 15px; margin-bottom: 20px; }
 .panel-header h3 { margin: 0; font-size: 1.4rem; font-weight: 700; color: #ffffff; }
 
